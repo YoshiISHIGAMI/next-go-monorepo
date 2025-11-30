@@ -1,4 +1,9 @@
 {
+  "workbench.colorCustomizations": {
+    "titleBar.activeBackground": "#870056",
+    "titleBar.activeForeground": "#ffffff",
+    "activityBar.background": "#870056"
+  },
   "editor.formatOnSave": true,
   "[go]": {
     "editor.defaultFormatter": "golang.go"
