@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -169,7 +170,10 @@ func getAuthUser(c echo.Context) (AuthUser, bool) {
 }
 
 func main() {
-	dsn := "postgres://nextgo:nextgo@localhost:5432/nextgo_dev?sslmode=disable"
+	dsn := os.Getenv("DATABASE_URL")
+	if strings.TrimSpace(dsn) == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

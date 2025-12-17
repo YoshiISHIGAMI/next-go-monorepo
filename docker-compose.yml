@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16
+    container_name: next-go-postgres
+    environment:
+      POSTGRES_USER: nextgo
+      POSTGRES_PASSWORD: nextgo
+      POSTGRES_DB: nextgo_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - nextgo_pgdata:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./apps/go-api
+    container_name: next-go-api
+    environment:
+      DATABASE_URL: postgres://nextgo:nextgo@db:5432/nextgo_dev?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  nextgo_pgdata:
