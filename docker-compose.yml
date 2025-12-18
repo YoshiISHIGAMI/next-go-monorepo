@@ -1,26 +1,30 @@
 services:
   db:
     image: postgres:16
-    container_name: next-go-postgres
     environment:
       POSTGRES_USER: nextgo
       POSTGRES_PASSWORD: nextgo
       POSTGRES_DB: nextgo_dev
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextgo -d nextgo_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - nextgo_pgdata:/var/lib/postgresql/data
+      - ./docker/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
   api:
-    build:
-      context: ./apps/go-api
-    container_name: next-go-api
+    build: ./apps/go-api
     environment:
       DATABASE_URL: postgres://nextgo:nextgo@db:5432/nextgo_dev?sslmode=disable
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   nextgo_pgdata:
