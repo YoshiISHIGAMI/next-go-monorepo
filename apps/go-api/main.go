@@ -29,7 +29,7 @@ type User struct {
 	CreatedAt string `json:"created_at"`
 }
 
-var jwtSecret = []byte("dev-secret-change-me")
+var jwtSecret []byte
 
 func generateJWT(user User) (string, error) {
 	claims := jwt.MapClaims{
@@ -169,7 +169,22 @@ func getAuthUser(c echo.Context) (AuthUser, bool) {
 	return user, ok
 }
 
+func findUserByID(db *sql.DB, id int64) (User, error) {
+	var u User
+	err := db.QueryRow(
+		`SELECT id, email, created_at FROM users WHERE id = $1`,
+		id,
+	).Scan(&u.ID, &u.Email, &u.CreatedAt)
+	return u, err
+}
+
 func main() {
+	jwtSecretStr := os.Getenv("JWT_SECRET")
+	if strings.TrimSpace(jwtSecretStr) == "" {
+		log.Fatal("JWT_SECRET is required")
+	}
+	jwtSecret = []byte(jwtSecretStr)
+
 	dsn := os.Getenv("DATABASE_URL")
 	if strings.TrimSpace(dsn) == "" {
 		log.Fatal("DATABASE_URL is required")
@@ -322,33 +337,42 @@ func main() {
 
 	// GET /auth/me: トークンから自分の情報を返す
 	e.GET("/auth/me", func(c echo.Context) error {
-		user, ok := getAuthUser(c)
+		au, ok := getAuthUser(c)
 		if !ok {
-			// ミドルウェアが動いていれば基本ここには来ない想定
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "unauthorized",
-			})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"id":    user.ID,
-			"email": user.Email,
-		})
+		u, err := findUserByID(db, au.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "user not found"})
+		}
+		if err != nil {
+			log.Println("failed to query user:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch user"})
+		}
+
+		return c.JSON(http.StatusOK, u)
 	}, requireAuth)
 
 	// GET /me/profile: 認証が必要な保護ルートの例
 	e.GET("/me/profile", func(c echo.Context) error {
-		user, ok := getAuthUser(c)
+		au, ok := getAuthUser(c)
 		if !ok {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "unauthorized",
-			})
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 		}
 
-		// 本当は DB の profile テーブルを見る想定だけど、今はダミーでOK
+		u, err := findUserByID(db, au.ID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "user not found"})
+		}
+		if err != nil {
+			log.Println("failed to query user:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch user"})
+		}
+
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"id":    user.ID,
-			"email": user.Email,
+			"id":    u.ID,
+			"email": u.Email,
 			"bio":   "This is a sample profile.",
 		})
 	}, requireAuth)
