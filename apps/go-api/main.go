@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -41,6 +43,40 @@ func generateJWT(user User) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
+const (
+	minPasswordLen = 8
+	maxPasswordLen = 72 // bcrypt が72byteで切り捨てるため
+)
+
+func normalizeEmail(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+func validateEmail(email string) error {
+	if email == "" {
+		return errors.New("email is required")
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		return errors.New("invalid email")
+	}
+	return nil
+}
+
+func validatePassword(pw string) error {
+	pw = strings.TrimSpace(pw)
+	if pw == "" {
+		return errors.New("password is required")
+	}
+	if len([]byte(pw)) < minPasswordLen {
+		return fmt.Errorf("password must be at least %d characters", minPasswordLen)
+	}
+	if len([]byte(pw)) > maxPasswordLen {
+		return fmt.Errorf("password must be at most %d characters", maxPasswordLen)
+	}
+	return nil
+}
+
 // ユーザー作成（サインアップ）用ハンドラ
 func handleUserSignup(db *sql.DB) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -51,16 +87,13 @@ func handleUserSignup(db *sql.DB) echo.HandlerFunc {
 			})
 		}
 
-		if strings.TrimSpace(req.Email) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "email is required",
-			})
-		}
+		req.Email = normalizeEmail(req.Email)
 
-		if strings.TrimSpace(req.Password) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "password is required",
-			})
+		if err := validateEmail(req.Email); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		if err := validatePassword(req.Password); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 
 		// パスワードをハッシュ化
@@ -81,6 +114,17 @@ func handleUserSignup(db *sql.DB) echo.HandlerFunc {
 			string(hashed),
 		).Scan(&user.ID, &user.Email, &user.CreatedAt)
 		if err != nil {
+			// email の UNIQUE 制約違反などを 409 に寄せる
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				// 23505 = unique_violation
+				if pgErr.Code == "23505" {
+					return c.JSON(http.StatusConflict, map[string]string{
+						"error": "email already exists",
+					})
+				}
+			}
+
 			log.Println("failed to insert user:", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "failed to create user",
@@ -284,10 +328,13 @@ func main() {
 			})
 		}
 
-		if strings.TrimSpace(req.Email) == "" || strings.TrimSpace(req.Password) == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "email and password are required",
-			})
+		req.Email = normalizeEmail(req.Email)
+
+		if err := validateEmail(req.Email); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		if err := validatePassword(req.Password); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 
 		var user User
