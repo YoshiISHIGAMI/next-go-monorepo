@@ -425,5 +425,9 @@ func main() {
 	}, requireAuth)
 
 	// サーバー起動
-	e.Logger.Fatal(e.Start(":8080"))
+	port := os.Getenv("PORT")
+	if strings.TrimSpace(port) == "" {
+		port = "8080"
+	}
+	e.Logger.Fatal(e.Start(":" + port))
 }
