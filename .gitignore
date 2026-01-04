@@ -1,2 +1,10 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# env
 .env
 .env.*
