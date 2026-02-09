@@ -26,9 +26,10 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 type User struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
+	ID        int64   `json:"id"`
+	Email     string  `json:"email"`
+	Name      *string `json:"name,omitempty"`
+	CreatedAt string  `json:"created_at"`
 }
 
 var jwtSecret []byte
@@ -144,6 +145,20 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// OAuth callback request
+type OAuthCallbackRequest struct {
+	Provider          string `json:"provider"`
+	ProviderAccountID string `json:"provider_account_id"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
+}
+
+// OAuth callback response
+type OAuthCallbackResponse struct {
+	User      User `json:"user"`
+	IsNewUser bool `json:"is_new_user"`
+}
+
 // コンテキストに載せる認証済みユーザー情報
 type AuthUser struct {
 	ID    int64
@@ -216,10 +231,116 @@ func getAuthUser(c echo.Context) (AuthUser, bool) {
 func findUserByID(db *sql.DB, id int64) (User, error) {
 	var u User
 	err := db.QueryRow(
-		`SELECT id, email, created_at FROM users WHERE id = $1`,
+		`SELECT id, email, name, created_at FROM users WHERE id = $1`,
 		id,
-	).Scan(&u.ID, &u.Email, &u.CreatedAt)
+	).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt)
 	return u, err
+}
+
+// OAuth callback handler - creates or retrieves user based on OAuth provider
+func handleOAuthCallback(db *sql.DB) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var req OAuthCallbackRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "invalid request body",
+			})
+		}
+
+		if req.Provider == "" || req.ProviderAccountID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "provider and provider_account_id are required",
+			})
+		}
+
+		req.Email = normalizeEmail(req.Email)
+
+		// Check if auth_identity exists
+		var userID int64
+		err := db.QueryRow(
+			`SELECT user_id FROM auth_identities
+			 WHERE provider = $1 AND provider_account_id = $2`,
+			req.Provider, req.ProviderAccountID,
+		).Scan(&userID)
+
+		if err == nil {
+			// User exists, fetch and return
+			user, err := findUserByID(db, userID)
+			if err != nil {
+				log.Println("failed to find user:", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{
+					"error": "failed to fetch user",
+				})
+			}
+			return c.JSON(http.StatusOK, OAuthCallbackResponse{
+				User:      user,
+				IsNewUser: false,
+			})
+		}
+
+		if !errors.Is(err, sql.ErrNoRows) {
+			log.Println("failed to query auth_identity:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to check auth identity",
+			})
+		}
+
+		// User doesn't exist, create new user
+		tx, err := db.Begin()
+		if err != nil {
+			log.Println("failed to begin transaction:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to create user",
+			})
+		}
+		defer tx.Rollback()
+
+		// Insert into users
+		var user User
+		var name *string
+		if req.Name != "" {
+			name = &req.Name
+		}
+		err = tx.QueryRow(
+			`INSERT INTO users (email, name)
+			 VALUES ($1, $2)
+			 ON CONFLICT (email) DO UPDATE SET name = COALESCE(EXCLUDED.name, users.name)
+			 RETURNING id, email, name, created_at`,
+			req.Email, name,
+		).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+		if err != nil {
+			log.Println("failed to insert user:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to create user",
+			})
+		}
+
+		// Insert into auth_identities
+		_, err = tx.Exec(
+			`INSERT INTO auth_identities (user_id, provider, provider_account_id)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (provider, provider_account_id) DO NOTHING`,
+			user.ID, req.Provider, req.ProviderAccountID,
+		)
+		if err != nil {
+			log.Println("failed to insert auth_identity:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to create auth identity",
+			})
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Println("failed to commit transaction:", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "failed to create user",
+			})
+		}
+
+		return c.JSON(http.StatusCreated, OAuthCallbackResponse{
+			User:      user,
+			IsNewUser: true,
+		})
+	}
 }
 
 func main() {
@@ -274,6 +395,9 @@ func main() {
 
 	e.POST("/users", signupHandler)       // 既存のエンドポイント
 	e.POST("/auth/signup", signupHandler) // 認証用のサインアップAPI
+
+	// OAuth callback - creates or retrieves user from OAuth provider
+	e.POST("/auth/oauth/callback", handleOAuthCallback(db))
 
 	// GET /users: ユーザー一覧取得
 	e.GET("/users", func(c echo.Context) error {
