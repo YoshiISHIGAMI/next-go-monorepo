@@ -401,7 +401,7 @@ func main() {
 
 	// GET /users: ユーザー一覧取得
 	e.GET("/users", func(c echo.Context) error {
-		rows, err := db.Query("SELECT id, email, created_at FROM users ORDER BY id")
+		rows, err := db.Query("SELECT id, email, name, created_at FROM users ORDER BY id")
 		if err != nil {
 			log.Println("failed to query users:", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch users"})
@@ -411,7 +411,7 @@ func main() {
 		var users []User
 		for rows.Next() {
 			var user User
-			if err := rows.Scan(&user.ID, &user.Email, &user.CreatedAt); err != nil {
+			if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt); err != nil {
 				log.Println("failed to scan user:", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to fetch users"})
 			}

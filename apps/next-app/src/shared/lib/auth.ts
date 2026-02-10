@@ -12,22 +12,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       try {
         // Call Go API to create/retrieve user
-        const response = await fetch(
-          `${env.apiBaseUrl}/auth/oauth/callback`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              provider: account.provider,
-              provider_account_id: account.providerAccountId,
-              email: user.email,
-              name: user.name ?? "",
-            }),
-          },
-        );
+        const response = await fetch(`${env.apiBaseUrl}/auth/oauth/callback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: account.provider,
+            provider_account_id: account.providerAccountId,
+            email: user.email,
+            name: user.name ?? "",
+          }),
+        });
 
         if (!response.ok) {
-          console.error("Failed to sync user with Go API:", await response.text());
+          console.error(
+            "Failed to sync user with Go API:",
+            await response.text(),
+          );
           return false;
         }
 
