@@ -1,3 +1,67 @@
+# next-go-monorepo
+
+Go API + Next.js のモノレポ構成テンプレート
+
+## 📁 構成
+
+```
+├── apps/
+│   ├── go-api/          # Go API (Echo)
+│   └── next-app/        # Next.js 16 (App Router)
+├── docker/
+│   └── db/init.sql      # DB初期化SQL
+└── docker-compose.yml
+```
+
+## 🚀 ローカル起動手順
+
+### 1) 環境変数を設定
+
+```bash
+# apps/next-app/.env.local を作成
+cp apps/next-app/.env.example apps/next-app/.env.local
+```
+
+`.env.local` を編集:
+- `AUTH_SECRET`: `npx auth secret` で生成
+- `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`: GitHub OAuth App から取得
+- `NEXT_PUBLIC_API_BASE_URL`: `http://localhost:8080`（ローカル）
+
+### 2) Docker で Go API + DB を起動
+
+```bash
+docker compose up -d --build
+```
+
+### 3) Next.js を起動
+
+```bash
+cd apps/next-app
+pnpm install
+pnpm dev
+```
+
+### 4) 動作確認
+
+1. http://localhost:3000 にアクセス
+2. 「Sign in with GitHub」でログイン
+3. /me ページでユーザー情報が表示されればOK
+
+## 🧪 テスト
+
+```bash
+# ユニットテスト (Vitest)
+pnpm --filter next-app test:run
+
+# E2Eテスト (Playwright)
+pnpm --filter next-app test:e2e
+
+# Lint (Biome)
+pnpm biome:check
+```
+
+---
+
 ## 🐳 Docker 開発メモ
 
 ### 起動（基本：バックグラウンド）
