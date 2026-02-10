@@ -73,7 +73,7 @@ next-go-monorepo/
 |---------|------|
 | Frontend | Next.js 16, React 19, Tailwind CSS v4, shadcn/ui |
 | Backend | Go 1.25, Echo, slog |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 17 |
 | Auth | Auth.js v5 (GitHub OAuth) |
 | API Spec | OpenAPI 3.0 |
 | Testing | Vitest, Playwright, go test |
@@ -89,10 +89,13 @@ next-go-monorepo/
 cp apps/next-app/.env.example apps/next-app/.env.local
 # AUTH_SECRET, AUTH_GITHUB_ID, AUTH_GITHUB_SECRET を設定
 
-# 2. 起動
+# 2. Docker で Go API + DB を起動
 make dev
 
-# 3. アクセス
+# 3. Next.js を起動（別ターミナル）
+cd apps/next-app && pnpm install && pnpm dev
+
+# 4. アクセス
 # Next.js: http://localhost:3000
 # Go API:  http://localhost:8080
 ```
@@ -121,7 +124,7 @@ cp apps/next-app/.env.example apps/next-app/.env.local
 `.env.local` を編集:
 - `AUTH_SECRET`: `npx auth secret` で生成
 - `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`: GitHub OAuth App から取得
-- `NEXT_PUBLIC_API_BASE_URL`: `http://localhost:8080`
+- `API_BASE_URL`: `http://localhost:8080` (サーバ専用)
 
 ### 2) Docker で Go API + DB を起動
 
@@ -208,7 +211,10 @@ docker run --rm -it \
 - `AUTH_SECRET`
 - `AUTH_GITHUB_ID`
 - `AUTH_GITHUB_SECRET`
-- `NEXT_PUBLIC_API_BASE_URL` = Railway の API URL
+- `API_BASE_URL` = Railway の API URL
+  - Server Components / Route Handler からのみ使用（ブラウザには露出しない）
+
+> **TODO**: 本番デプロイ時は Go API の CORS 設定、認証トークンの受け渡し方法を要検討
 
 ### 6) GitHub OAuth App 更新
 
@@ -267,8 +273,14 @@ pnpm --filter next-app generate:types
 | GET | /ping | 疎通確認 |
 | POST | /auth/signup | ユーザー登録 |
 | POST | /auth/login | ログイン (JWT発行) |
-| POST | /auth/oauth/callback | OAuth コールバック |
-| GET | /auth/me | 認証ユーザー情報 (要JWT) |
+| POST | /auth/oauth/callback | OAuth連携 (Next.js から呼び出す) |
+| GET | /auth/me | 認証ユーザー情報 |
 | GET | /users | ユーザー一覧 |
 
 詳細: `apps/go-api/openapi.yaml`
+
+### 認証について
+
+- **Next.js**: Auth.js (GitHub OAuth) でセッション管理
+- **Go API**: JWT エンドポイントはテンプレとして残存。実際の認証フローは Next.js (BFF) 経由で `/auth/oauth/callback` を呼び出す
+- **JWT_SECRET**: 将来の API 間認証やモバイル対応のために残している
