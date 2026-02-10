@@ -1,0 +1,10 @@
+# Air hot reload
+tmp/
+
+# Binary
+main
+server
+
+# IDE
+.idea/
+*.swp

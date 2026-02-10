@@ -1,6 +1,9 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
+import type { components } from "@/shared/api/types.gen";
 import { env } from "@/shared/config/env";
+
+type OAuthCallbackResponse = components["schemas"]["OAuthCallbackResponse"];
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [GitHub],
@@ -31,7 +34,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return false;
         }
 
-        const data = await response.json();
+        const data: OAuthCallbackResponse = await response.json();
         // Store internal user ID in the user object for session callback
         user.id = String(data.user.id);
 

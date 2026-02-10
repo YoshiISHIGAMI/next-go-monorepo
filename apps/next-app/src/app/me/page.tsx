@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
+import type { components } from "@/shared/api/types.gen";
 import { env } from "@/shared/config/env";
 import { auth } from "@/shared/lib/auth";
 
-type User = {
-  id: number;
-  email: string;
-  name: string | null;
-  created_at: string;
-};
+type User = components["schemas"]["User"];
 
 async function getUser(userId: string): Promise<User | null> {
   try {
