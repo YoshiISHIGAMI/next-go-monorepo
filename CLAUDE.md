@@ -1,107 +1,185 @@
 # CLAUDE.md
 
-このファイルはClaude Code（AI）およびチームメンバーへのガイドです。
+このファイルは Claude Code (AI) およびチームメンバーへの開発ガイドです。
 
 ## プロジェクト概要
 
-Go API + Next.js のフルスタックモノレポ。将来のプロジェクトのテンプレートとして使用。
-
-### 技術スタック
-
-- **Frontend**: Next.js 16.1.6 LTS, React 19, Tailwind CSS v4, shadcn/ui
-- **Backend**: Go (Echo), PostgreSQL
-- **Auth**: Auth.js v5 (GitHub OAuth)
-- **Tooling**: pnpm, Biome, Vitest, Playwright
+Go API + Next.js のフルスタックモノレポテンプレート。
+新規プロジェクトのベースとして使用。
 
 ## よく使うコマンド
 
 ```bash
 # 開発
-pnpm dev                          # Next.js 起動 (apps/next-app内で)
-docker compose up -d --build      # Go API + DB 起動
+make dev                          # Docker (API + DB) 起動
+make logs                         # ログ表示
+make down                         # 停止
+
+# Next.js (apps/next-app で実行)
+pnpm dev                          # 開発サーバー起動
+pnpm build                        # ビルド
 
 # テスト
-pnpm --filter next-app test:run   # Vitest ユニットテスト
-pnpm --filter next-app test:e2e   # Playwright E2E
+make test                         # 全テスト
+pnpm --filter next-app test:run   # Next.js ユニットテスト
+cd apps/go-api && go test ./...   # Go テスト
 
 # Lint/Format
-pnpm biome:check                  # チェックのみ
-pnpm biome:fix                    # 自動修正
+make lint                         # 全 Lint
+make fmt                          # 全フォーマット
+pnpm biome:fix                    # Biome 修正
+
+# コード生成
+make generate                     # OpenAPI → TypeScript 型生成
 ```
 
-## ディレクトリ構成 (Next.js - FSD)
+## ディレクトリ構成
+
+### Go API (`apps/go-api/`)
 
 ```
-apps/next-app/src/
-├── app/                 # App Router (ルーティング)
-│   ├── api/            # Route Handlers
-│   ├── login/          # ログインページ
-│   └── me/             # マイページ
+apps/go-api/
+├── main.go                 # エントリポイント、ルーティング
+├── openapi.yaml            # API 仕様 (Single Source of Truth)
+├── internal/
+│   ├── handler/            # HTTP ハンドラー (auth.go, user.go)
+│   ├── middleware/         # ミドルウェア (auth, error, request_logger)
+│   ├── model/              # データモデル (User, Request/Response 型)
+│   ├── apperror/           # 共通エラー (BadRequest, NotFound 等)
+│   └── logger/             # slog 設定
+├── Dockerfile              # 本番用 (distroless)
+└── Dockerfile.dev          # 開発用 (air hot reload)
+```
+
+**命名規則:**
+- パッケージ名: 小文字、単数形 (`handler`, `model`)
+- ファイル名: 小文字、スネークケース (`request_logger.go`)
+- 関数名: キャメルケース、公開は大文字開始 (`NewAuthHandler`)
+
+### Next.js (`apps/next-app/src/`)
+
+```
+src/
+├── app/                    # App Router (ルーティング)
+│   ├── api/               # Route Handlers
+│   │   ├── auth/          # Auth.js ハンドラー
+│   │   └── bff/           # BFF エンドポイント
+│   ├── login/             # ログインページ
+│   └── me/                # マイページ
 ├── components/
-│   └── ui/             # shadcn/ui コンポーネント (テスト不要)
-├── features/           # 機能単位のコード (将来用)
+│   └── ui/                # shadcn/ui (テスト不要)
 └── shared/
-    ├── config/         # 環境変数など
-    ├── lib/            # ユーティリティ (auth, utils)
-    └── api/            # APIクライアント
+    ├── api/
+    │   └── types.gen.ts   # OpenAPI 生成型 (編集禁止)
+    ├── config/
+    │   └── env.ts         # 環境変数
+    └── lib/
+        ├── auth.ts        # Auth.js 設定
+        └── utils.ts       # ユーティリティ
 ```
+
+**命名規則:**
+- ファイル名: ケバブケース (`types.gen.ts`)
+- コンポーネント: パスカルケース (`Button.tsx`)
+- barrel export 禁止: `index.ts` からの再エクスポートはしない
 
 ## コーディング規約
 
-### インポート
+### インポート順序
 
-- **barrel export 禁止**: `index.ts` からの再エクスポートはしない
-- **直接インポート**: `import { auth } from "@/shared/lib/auth"`
-- **Biome**: インポート順序は Biome が自動整理 (`pnpm biome:fix`)
+Biome が自動整理。手動で整える必要なし。
 
-### ファイル配置
+```typescript
+// 1. 外部ライブラリ
+import { redirect } from "next/navigation";
+// 2. 内部モジュール (@/)
+import type { components } from "@/shared/api/types.gen";
+import { env } from "@/shared/config/env";
+```
 
-- shadcn/ui コンポーネント → `src/components/ui/`
-- 自作の共有コンポーネント → `src/shared/ui/` (将来用)
-- 機能固有のコンポーネント → `src/features/<feature>/ui/`
+### エラーハンドリング (Go)
 
-### スタイル
+```go
+// 共通エラーを使用
+return apperror.BadRequest("invalid email")
+return apperror.NotFound("user")
+return apperror.Internal("database error")
 
-- Tailwind CSS v4 (CSS-first、`@theme` で設定)
-- OKLCH カラー (shadcn/ui デフォルト)
+// ドメイン固有エラー
+return apperror.EmailAlreadyExists()
+return apperror.InvalidCredentials()
+```
+
+レスポンス形式:
+```json
+{"code": "BAD_REQUEST", "message": "invalid email"}
+```
+
+### ロギング (Go)
+
+```go
+// slog を使用 (log.Println は使わない)
+slog.Info("user created", "userID", user.ID)
+slog.Error("failed to query", "error", err)
+```
+
+出力形式 (JSON):
+```json
+{"time":"...","level":"INFO","msg":"user created","userID":123}
+```
 
 ## テスト方針
 
 ### テストすべきもの
 
-- ユーティリティ関数 (`utils.ts` など)
-- ビジネスロジックを含むカスタムフック
-- 自作コンポーネント (features/ 配下)
+- ユーティリティ関数 (`utils.ts`)
+- ビジネスロジック
+- 自作コンポーネント (`features/` 配下)
 
 ### テスト不要なもの
 
 - shadcn/ui コンポーネント (外部ライブラリ)
-- 設定ファイル (`auth.ts` など)
-- 単純なラッパーコンポーネント
+- 設定ファイル (`auth.ts` 等)
+- OpenAPI 生成ファイル (`types.gen.ts`)
 
 ### テストの種類
 
 | 種類 | ツール | 対象 |
 |------|--------|------|
 | Unit | Vitest | ユーティリティ、ロジック |
-| Component | Vitest + RTL | 自作コンポーネント |
-| E2E | Playwright | ユーザーフロー全体 |
+| E2E | Playwright | ユーザーフロー |
+| Go | go test | ハンドラー、ロジック |
+
+## API 開発フロー
+
+```
+1. openapi.yaml を編集
+       ↓
+2. make generate (型生成)
+       ↓
+3. Go: handler を実装
+       ↓
+4. Next.js: 生成された型を使用
+       ↓
+5. TypeScript がエラーを検知 → 修正
+```
 
 ## 認証フロー
 
 ```
 [ユーザー] → [Next.js] → [Auth.js] → [GitHub OAuth]
-                ↓
-         [Go API /auth/oauth/callback]
-                ↓
-         [users + auth_identities テーブル]
+                              ↓
+                    [Go API /auth/oauth/callback]
+                              ↓
+                    [users + auth_identities テーブル]
 ```
 
-- 内部ユーザーID を使用 (GitHub ID ではない)
+- 内部ユーザー ID を使用 (GitHub ID ではない)
 - 同じメールなら異なるプロバイダーでも同一ユーザー
 
 ## 注意事項
 
 - `.env.local` はコミットしない
-- Go API の変更後は `docker compose up -d --build` で再ビルド
-- AUTH_SECRET は `npx auth secret` で生成
+- `types.gen.ts` は編集しない (自動生成)
+- Go API 変更後は air が自動再起動
+- DB スキーマ変更後は `make db-reset`

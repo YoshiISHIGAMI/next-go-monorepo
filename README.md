@@ -1,37 +1,137 @@
 # next-go-monorepo
 
-Go API + Next.js のモノレポ構成テンプレート
+Go API + Next.js のフルスタックモノレポテンプレート
 
-## 📁 構成
+## アーキテクチャ
 
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                        Client                               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Next.js (Frontend)                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │  App Router │  │  Auth.js    │  │  Server Components  │  │
+│  │  (Pages)    │  │  (OAuth)    │  │  (SSR/RSC)          │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+│                         │ BFF Pattern                       │
+└─────────────────────────┼───────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Go API (Backend)                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   Echo      │  │   slog      │  │   OpenAPI           │  │
+│  │   (Router)  │  │   (Logger)  │  │   (API Spec)        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────┼───────────────────────────────────┘
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    PostgreSQL                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## ディレクトリ構成
+
+```
+next-go-monorepo/
 ├── apps/
-│   ├── go-api/          # Go API (Echo)
-│   └── next-app/        # Next.js 16 (App Router)
+│   ├── go-api/                    # Go API
+│   │   ├── internal/
+│   │   │   ├── handler/           # HTTPハンドラー
+│   │   │   ├── middleware/        # ミドルウェア (auth, logger, error)
+│   │   │   ├── model/             # データモデル
+│   │   │   ├── apperror/          # 共通エラー
+│   │   │   └── logger/            # slog設定
+│   │   ├── main.go                # エントリポイント
+│   │   ├── openapi.yaml           # API仕様
+│   │   ├── Dockerfile             # 本番用
+│   │   └── Dockerfile.dev         # 開発用 (air)
+│   │
+│   └── next-app/                  # Next.js
+│       └── src/
+│           ├── app/               # App Router (ページ)
+│           ├── components/ui/     # shadcn/ui
+│           └── shared/
+│               ├── api/           # OpenAPI生成型
+│               ├── config/        # 環境変数
+│               └── lib/           # ユーティリティ
+│
 ├── docker/
-│   └── db/init.sql      # DB初期化SQL
-└── docker-compose.yml
+│   └── db/init.sql                # DB初期化
+│
+├── .github/workflows/ci.yml       # CI設定
+├── docker-compose.yml
+├── Makefile
+└── CLAUDE.md                      # 開発ガイド
 ```
 
-## 🚀 ローカル起動手順
+## 技術スタック
+
+| レイヤー | 技術 |
+|---------|------|
+| Frontend | Next.js 16, React 19, Tailwind CSS v4, shadcn/ui |
+| Backend | Go 1.25, Echo, slog |
+| Database | PostgreSQL 16 |
+| Auth | Auth.js v5 (GitHub OAuth) |
+| API Spec | OpenAPI 3.0 |
+| Testing | Vitest, Playwright, go test |
+| CI | GitHub Actions |
+| Dev Tools | Biome, air (hot reload), Docker |
+
+---
+
+## クイックスタート
+
+```bash
+# 1. 環境変数を設定
+cp apps/next-app/.env.example apps/next-app/.env.local
+# AUTH_SECRET, AUTH_GITHUB_ID, AUTH_GITHUB_SECRET を設定
+
+# 2. 起動
+make dev
+
+# 3. アクセス
+# Next.js: http://localhost:3000
+# Go API:  http://localhost:8080
+```
+
+## Makefile コマンド
+
+```bash
+make dev          # Docker (API + DB) を起動
+make down         # Docker を停止
+make logs         # ログを表示
+make test         # 全テスト実行
+make lint         # Lint チェック
+make generate     # OpenAPI から型生成
+```
+
+---
+
+## ローカル開発
 
 ### 1) 環境変数を設定
 
 ```bash
-# apps/next-app/.env.local を作成
 cp apps/next-app/.env.example apps/next-app/.env.local
 ```
 
 `.env.local` を編集:
 - `AUTH_SECRET`: `npx auth secret` で生成
 - `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`: GitHub OAuth App から取得
-- `NEXT_PUBLIC_API_BASE_URL`: `http://localhost:8080`（ローカル）
+- `NEXT_PUBLIC_API_BASE_URL`: `http://localhost:8080`
 
 ### 2) Docker で Go API + DB を起動
 
 ```bash
-docker compose up -d --build
+make dev
+# または
+docker compose up -d
 ```
+
+Go API は air による hot reload が有効。コード変更で自動再起動。
 
 ### 3) Next.js を起動
 
@@ -47,124 +147,128 @@ pnpm dev
 2. 「Sign in with GitHub」でログイン
 3. /me ページでユーザー情報が表示されればOK
 
-## 🧪 テスト
+---
+
+## テスト
 
 ```bash
-# ユニットテスト (Vitest)
+# Next.js ユニットテスト
 pnpm --filter next-app test:run
 
-# E2Eテスト (Playwright)
+# Next.js E2Eテスト
 pnpm --filter next-app test:e2e
 
-# Lint (Biome)
+# Go テスト
+cd apps/go-api && go test ./...
+
+# Lint
 pnpm biome:check
+cd apps/go-api && go vet ./...
 ```
 
 ---
 
-## 🐳 Docker 開発メモ
+## 本番デプロイ (Railway)
 
-### 起動（基本：バックグラウンド）
+### 1) プロジェクト作成
 
-```bash
-# next-go-monorepo（docker-compose.yml がある場所）で
-docker compose up -d --build
-```
+Railway で New Project → Empty Project
 
-```bash
-docker compose logs -f
-```
-
-```bash
-docker compose down
-```
-
-## ▶️ Go 単体で起動（Docker を使わない）
-
-### 1) DB だけ起動（docker-compose）
-
-```bash
-# リポジトリルート（docker-compose.yml がある場所）で
-docker compose up -d db
-```
-
-### 2) API をローカルで起動（go run）
-
-```bash
-# apps/go-api（main.go がある場所）で
-export DATABASE_URL='postgres://nextgo:nextgo@localhost:5432/nextgo_dev?sslmode=disable'
-export JWT_SECRET='dev-secret-change-me'
-
-go run .
-```
-
-### 3) 動作確認
-
-```bash
-# 別ターミナルで（場所はどこでもOK）
-curl -sS http://localhost:8080/ping
-```
-
-### 4) 片付け（停止）
-
-```bash
-# リポジトリルート（docker-compose.yml がある場所）で
-docker compose down
-```
-
-## Railway Deploy Memo (Go API + Postgres)
-
-### 1) Create Project
-
-- Railway: New Project → Empty Project
-
-### 2) Add Postgres
+### 2) PostgreSQL 追加
 
 - `+ Create` → Database → PostgreSQL
-- Confirm Postgres is Online
+- 起動を確認
 
-### 3) Initialize DB (run init.sql)
-
-- Postgres → Connect → Public Network → copy Connection URL (show)
-- Run from repo root:
+### 3) DB 初期化
 
 ```bash
+# Postgres の Public URL を取得して実行
 docker run --rm -it \
   -v "$PWD:/work" -w /work \
   postgres:17 \
   psql "<CONNECTION_URL>" -f docker/db/init.sql
 ```
 
-### 4) Add API Service (monorepo)
+### 4) Go API デプロイ
 
 - Create → Service → GitHub Repo
-- Root Directory: /apps/go-api
-- Build Method: Dockerfile
-- Dockerfile Path: /apps/go-api/Dockerfile
+- Root Directory: `/apps/go-api`
+- Dockerfile Path: `/apps/go-api/Dockerfile`
 
-### 5) Set Environment Variables (API service → Variables)
-
+環境変数:
 - `DATABASE_URL` = `${{ Postgres.DATABASE_URL }}`
-- `JWT_SECRET` = random 32+ chars
+- `JWT_SECRET` = ランダム文字列 (32文字以上)
 
-### 6) Deploy & Generate Domain
+### 5) Next.js デプロイ (Vercel)
 
-- Deployments → Deploy
-- Settings → Public Networking → Generate Domain (Port: 8080)
+- Vercel で GitHub Repo をインポート
+- Root Directory: `apps/next-app`
 
-### 7) Smoke Test (Production URL)
+環境変数:
+- `AUTH_SECRET`
+- `AUTH_GITHUB_ID`
+- `AUTH_GITHUB_SECRET`
+- `NEXT_PUBLIC_API_BASE_URL` = Railway の API URL
+
+### 6) GitHub OAuth App 更新
+
+本番用の Callback URL を追加:
+- `https://<your-vercel-domain>/api/auth/callback/github`
+
+---
+
+## 新しいアプリを作る手順
+
+### このテンプレートを使う場合
 
 ```bash
-BASE_URL="https://<your-domain>"
+# 1. テンプレートをコピー
+git clone <this-repo> my-new-app
+cd my-new-app
+rm -rf .git
+git init
 
-# ping
-curl -i "$BASE_URL/ping"
+# 2. プロジェクト名を変更
+# - package.json の name
+# - go.mod の module 名
+# - README.md
 
-# signup (dummy)
-curl -i -X POST "$BASE_URL/auth/signup" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"dummy@example.com","password":"dummyPass1234"}'
+# 3. 環境変数を設定
+cp apps/next-app/.env.example apps/next-app/.env.local
 
-# login -> token -> me (one-liner)
-BASE_URL="https://<your-domain>"; TOKEN=$(curl -s -X POST "$BASE_URL/auth/login" -H "Content-Type: application/json" -d '{"email":"dummy@example.com","password":"dummyPass1234"}' | python -c 'import sys,json; print(json.load(sys.stdin)["token"])'); curl -i "$BASE_URL/auth/me" -H "Authorization: Bearer $TOKEN"
+# 4. 起動
+make dev
 ```
+
+### ドメインを追加する場合
+
+```bash
+# 1. DB テーブル追加
+# docker/db/init.sql に CREATE TABLE を追加
+
+# 2. Go API にエンドポイント追加
+# apps/go-api/internal/handler/ に新しいハンドラー作成
+# apps/go-api/openapi.yaml に API 定義追加
+# main.go にルート追加
+
+# 3. 型を再生成
+pnpm --filter next-app generate:types
+
+# 4. Next.js でページ作成
+# apps/next-app/src/app/ にページ追加
+```
+
+---
+
+## API エンドポイント
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | /ping | 疎通確認 |
+| POST | /auth/signup | ユーザー登録 |
+| POST | /auth/login | ログイン (JWT発行) |
+| POST | /auth/oauth/callback | OAuth コールバック |
+| GET | /auth/me | 認証ユーザー情報 (要JWT) |
+| GET | /users | ユーザー一覧 |
+
+詳細: `apps/go-api/openapi.yaml`
