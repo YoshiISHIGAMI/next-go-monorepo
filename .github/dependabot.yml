@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # pnpm (Next.js)
+  - package-ecosystem: "npm"
+    directory: "/apps/next-app"
+    schedule:
+      interval: "weekly"
+
+  # Go API
+  - package-ecosystem: "gomod"
+    directory: "/apps/go-api"
+    schedule:
+      interval: "weekly"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
