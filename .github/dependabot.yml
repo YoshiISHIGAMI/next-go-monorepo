@@ -4,16 +4,31 @@ updates:
   - package-ecosystem: "npm"
     directory: "/apps/next-app"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all-npm:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   # Go API
   - package-ecosystem: "gomod"
     directory: "/apps/go-api"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all-go:
+        patterns:
+          - "*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
