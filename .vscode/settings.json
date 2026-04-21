@@ -69,7 +69,7 @@
     // ===============================
     "gitDecoration.addedResourceForeground": "#4caf50", // 追加
     "gitDecoration.modifiedResourceForeground": "#ff9800", // 変更
-    "gitDecoration.deletedResourceForeground": "#f44336", // 削除
+    "gitDecoration.deletedResourceForeground": "#f44336" // 削除
   },
   "workbench.panel.defaultLocation": "right",
   "files.trimTrailingWhitespace": true,
