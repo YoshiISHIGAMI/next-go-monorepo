@@ -1,10 +1,79 @@
 {
-  "css.lint.unknownAtRules": "ignore",
   "workbench.colorCustomizations": {
-    "titleBar.activeBackground": "#870056",
-    "titleBar.activeForeground": "#ffffff",
-    "activityBar.background": "#870056"
+    // ===============================
+    // 🟡 Title Bar（上部バー）
+    // ===============================
+    "titleBar.activeBackground": "#ff00a2", // アクティブウィンドウの背景色
+    "titleBar.activeForeground": "#ffffff", // アクティブ時の文字色
+    "titleBar.inactiveBackground": "#333333", // 非アクティブ時の背景（少し暗くするのが見やすい）
+    "titleBar.inactiveForeground": "#aaaaaa", // 非アクティブ時の文字色
+    // ===============================
+    // 🟨 Activity Bar（左の縦アイコン）
+    // ===============================
+    "activityBar.background": "#ff00a2", // 背景
+    "activityBar.foreground": "#ffffff", // アイコン色
+    "activityBar.inactiveForeground": "#888888", // 非アクティブアイコン色
+    "activityBar.border": "#000000", // 外枠（うっすら境界線）
+    // ===============================
+    // ⬛ Side Bar（ファイルツリー）
+    // ===============================
+    "sideBar.background": "#1e1e1e", // サイドバー背景
+    "sideBar.foreground": "#ffffff", // テキスト色
+    "sideBar.border": "#000000", // サイドバーの境界線
+    "sideBarSectionHeader.background": "#ff00a2", // セクションヘッダー背景
+    "sideBarSectionHeader.foreground": "#ffffff", // セクションヘッダー文字色
+    // ===============================
+    // 🟩 Status Bar（下のバー）
+    // ===============================
+    "statusBar.background": "#ff00a2", // 背景（環境識別に超重要）
+    "statusBar.foreground": "#ffffff", // 文字色
+    "statusBar.border": "#000000", // 上の境界線
+    // ===============================
+    // 🧾 Editor（コードエリア）
+    // ===============================
+    "editor.background": "#1e1e1e", // エディタ背景
+    "editor.foreground": "#ffffff", // テキスト色
+    "editorLineNumber.foreground": "#666666", // 行番号
+    "editorLineNumber.activeForeground": "#ffffff", // 現在行の番号
+    "editorCursor.foreground": "#ff00a2", // カーソル色
+    "editor.selectionBackground": "#444444", // 選択範囲
+    "editor.lineHighlightBackground": "#2a2a2a", // カーソル行の背景
+    // ===============================
+    // 🗂️ Tabs（タブ）
+    // ===============================
+    "tab.activeBackground": "#ff00a2", // アクティブタブ
+    "tab.activeForeground": "#ffffff",
+    "tab.inactiveBackground": "#2a2a2a", // 非アクティブタブ
+    "tab.inactiveForeground": "#888888",
+    "tab.border": "#000000",
+    // ===============================
+    // 🔍 Panel（Terminal / Output）
+    // ===============================
+    "panel.background": "#1e1e1e",
+    "panel.border": "#333333",
+    "terminal.background": "#1e1e1e", // ターミナル背景
+    "terminal.foreground": "#ffffff",
+    // ===============================
+    // 🔎 Input / Search
+    // ===============================
+    "input.background": "#2a2a2a", // 検索ボックスなど
+    "input.foreground": "#ffffff",
+    "input.border": "#555555",
+    // ===============================
+    // 🚨 Error / Warning（見逃し防止）
+    // ===============================
+    "editorError.foreground": "#ff5555", // エラー
+    "editorWarning.foreground": "#ff0000", // 警告
+    // ===============================
+    // 🧠 Git（変更の可視化）
+    // ===============================
+    "gitDecoration.addedResourceForeground": "#4caf50", // 追加
+    "gitDecoration.modifiedResourceForeground": "#ff9800", // 変更
+    "gitDecoration.deletedResourceForeground": "#f44336" // 削除
   },
+  "workbench.panel.defaultLocation": "right",
+  "files.trimTrailingWhitespace": true,
+  "css.lint.unknownAtRules": "ignore",
   "editor.formatOnSave": true,
   "[go]": {
     "editor.defaultFormatter": "golang.go"
