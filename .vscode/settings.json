@@ -12,8 +12,10 @@
     // ===============================
     "activityBar.background": "#ff00a2", // 背景
     "activityBar.foreground": "#ffffff", // アイコン色
-    "activityBar.inactiveForeground": "#888888", // 非アクティブアイコン色
+    "activityBar.inactiveForeground": "#a30067", // 非アクティブアイコン色
     "activityBar.border": "#000000", // 外枠（うっすら境界線）
+    "activityBarBadge.background": "#ffffff", // バッジ（数字の丸）背景
+    "activityBarBadge.foreground": "#ff00a2", // バッジ文字色
     // ===============================
     // ⬛ Side Bar（ファイルツリー）
     // ===============================
@@ -41,7 +43,7 @@
     // ===============================
     // 🗂️ Tabs（タブ）
     // ===============================
-    "tab.activeBackground": "#ff00a2", // アクティブタブ
+    "tab.activeBackground": "#a30067", // アクティブタブ
     "tab.activeForeground": "#ffffff",
     "tab.inactiveBackground": "#2a2a2a", // 非アクティブタブ
     "tab.inactiveForeground": "#888888",
